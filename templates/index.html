@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ONIET 30 años · Público en vivo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@800;900&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --amarillo:#F5DE19;
+    --verde:#8DC63F;
+    --naranja:#DE5B2A;
+    --celeste:#2FA9E0;
+    --violeta:#7A2E8E;
+    --magenta:#D93B96;
+    --label-color:#7A2340; /* bordó/magenta apagado, derivado de la paleta */
+    --rainbow: linear-gradient(90deg,
+      var(--amarillo) 0%,
+      var(--verde) 20%,
+      var(--naranja) 40%,
+      var(--celeste) 60%,
+      var(--violeta) 80%,
+      var(--magenta) 100%);
+  }
+
+  *{ margin:0; padding:0; box-sizing:border-box; }
+
+  html, body{
+    width:100%;
+    height:100%;
+    background:#000;
+    overflow:hidden;
+    font-family:'Montserrat', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  }
+
+  .bg-video{
+    position:fixed;
+    top:50%;
+    left:50%;
+    width:100vh;
+    height:100vw;
+    object-fit:cover;
+    transform:translate(-50%, -50%) rotate(270deg);
+    filter:grayscale(85%) brightness(0.55) contrast(1.05);
+    z-index:0;
+  }
+
+  .bg-overlay{
+    position:fixed;
+    inset:0;
+    background:rgba(0,0,0,0.5);
+    z-index:1;
+  }
+
+  .frame-stripe{
+    position:fixed;
+    left:0;
+    width:100%;
+    height:1vh;
+    background:var(--rainbow);
+    background-size:200% 100%;
+    animation:shift 12s linear infinite;
+    z-index:5;
+  }
+  .frame-stripe.top{ top:0; }
+  .frame-stripe.bottom{ bottom:0; }
+
+  .screen{
+    position:relative;
+    z-index:2;
+    width:100vw;
+    height:100vh;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    text-align:center;
+    padding:3vh 4vw;
+  }
+
+  .logo{
+    height:46vh;
+    width:auto;
+    max-width:90vw;
+    object-fit:contain;
+    margin-bottom:1.5vh;
+    filter:drop-shadow(0 0.4vh 1.2vh rgba(0,0,0,0.6));
+  }
+
+  .label{
+    font-size:3.6vh;
+    font-weight:800;
+    letter-spacing:0.15em;
+    text-transform:uppercase;
+    color:var(--label-color);
+    margin-bottom:1.5vh;
+  }
+
+  .counter-frame{
+    position:relative;
+    padding:1.4vh 3.5vw;
+    border-radius:1.4vh;
+  }
+
+  .counter-frame::before{
+    content:"";
+    position:absolute;
+    inset:0;
+    padding:0.5vh;
+    border-radius:1.4vh;
+    background:var(--rainbow);
+    background-size:200% 100%;
+    animation:frameShift 12s linear infinite;
+    -webkit-mask:
+      linear-gradient(#000 0 0) content-box,
+      linear-gradient(#000 0 0);
+    mask:
+      linear-gradient(#000 0 0) content-box,
+      linear-gradient(#000 0 0);
+    -webkit-mask-composite:xor;
+    mask-composite:exclude;
+    pointer-events:none;
+  }
+
+  .counter{
+    font-weight:900;
+    font-size:18vh;
+    line-height:1;
+    letter-spacing:-0.02em;
+    background:var(--rainbow);
+    background-size:200% 100%;
+    -webkit-background-clip:text;
+    background-clip:text;
+    color:transparent;
+    animation:shift 12s linear infinite;
+    font-variant-numeric:tabular-nums;
+  }
+
+  @keyframes shift{
+    0%{ background-position:0% 50%; }
+    100%{ background-position:200% 50%; }
+  }
+
+  @keyframes frameShift{
+    0%{ background-position:0% 50%; }
+    100%{ background-position:200% 50%; }
+  }
+</style>
+</head>
+<body>
+
+  <video class="bg-video" autoplay muted loop playsinline>
+    <source src="/img/video-fondo.mp4" type="video/mp4">
+  </video>
+  <div class="bg-overlay"></div>
+
+  <div class="frame-stripe top"></div>
+  <div class="frame-stripe bottom"></div>
+
+  <main class="screen">
+    <img class="logo" src="/static/img/logo-oniet30.png" alt="ONIET 30 años · Olimpiadas Nacionales">
+    <h1 class="label">Espectadores</h1>
+    <div class="counter-frame">
+      <div class="counter" id="counter">0</div>
+    </div>
+  </main>
+
+  <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+  <script>
+    // --- Lógica de Socket.IO: no modificar ---
+    const socket = io();
+    const counterEl = document.getElementById('counter');
+
+    socket.on('count_update', (data) => {
+      counterEl.textContent = data.count;
+    });
+    // --- fin lógica de Socket.IO ---
+  </script>
+
+</body>
+</html>
