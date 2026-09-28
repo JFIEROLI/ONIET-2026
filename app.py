@@ -1,13 +1,19 @@
 import os
+import threading
+import time
 
+import serial
 from flask import Flask, render_template, send_from_directory
 from flask_socketio import SocketIO
 
 app = Flask(__name__)
 app.config["SECRET_KEY"] = "oniet30-secret"
-socketio = SocketIO(app, cors_allowed_origins="*")
+socketio = SocketIO(app, cors_allowed_origins="*", async_mode="threading")
 
 IMG_DIR = os.path.join(os.path.dirname(__file__), "img")
+
+SERIAL_PORT = os.environ.get("ARDUINO_PORT", "COM3")
+SERIAL_BAUDRATE = int(os.environ.get("ARDUINO_BAUDRATE", "9600"))
 
 attendee_count = 0
 
@@ -40,5 +46,32 @@ def increment(delta: int = 1):
     set_count(attendee_count + delta)
 
 
+COUNT_PREFIX = "Personas presentes:"
+
+
+def read_from_arduino():
+    """Lee el conteo desde el Arduino por cable USB (puerto serie).
+    El sketch manda varias líneas de log; la del conteo tiene el formato
+    "Personas presentes: N", que es la única que nos interesa parsear."""
+    while True:
+        try:
+            with serial.Serial(SERIAL_PORT, SERIAL_BAUDRATE, timeout=1) as ser:
+                print(f"Conectado al Arduino en {SERIAL_PORT} @ {SERIAL_BAUDRATE} baud")
+                while True:
+                    line = ser.readline().decode("utf-8", errors="ignore").strip()
+                    if not line:
+                        continue
+                    print(f"Arduino: {line}")
+                    if line.startswith(COUNT_PREFIX):
+                        try:
+                            set_count(int(line[len(COUNT_PREFIX):].strip()))
+                        except ValueError:
+                            pass
+        except serial.SerialException as exc:
+            print(f"No se pudo abrir {SERIAL_PORT} ({exc}). Reintentando en 5s...")
+            time.sleep(5)
+
+
 if __name__ == "__main__":
-    socketio.run(app, host="0.0.0.0", port=5000, debug=True)
+    threading.Thread(target=read_from_arduino, daemon=True).start()
+    socketio.run(app, host="0.0.0.0", port=5000, debug=True, use_reloader=False)

@@ -65,7 +65,7 @@ ONIET reúne **34 competencias** distribuidas en **8 categorías**:
 
 ## Sobre esta aplicación
 
-Este repositorio contiene la pantalla de **transmisión en vivo** utilizada para el aniversario de ONIET: una vista a pantalla completa con video de fondo institucional, el isologotipo de la edición y un **contador de espectadores en tiempo real**, sincronizado entre todas las pantallas conectadas mediante WebSockets.
+Este repositorio contiene la pantalla de **transmisión en vivo** utilizada para el aniversario de ONIET: una vista a pantalla completa con video de fondo institucional, el isologotipo de la edición y un **contador de espectadores en tiempo real**. Un Arduino conectado por **cable USB (puerto serie)** envía el conteo a la PC, que lo retransmite a todas las pantallas conectadas mediante WebSockets.
 
 <div align="center">
 <img src="img/image.png" alt="ONIET 30 años - Olimpiadas Nacionales" width="320">
@@ -78,8 +78,8 @@ Este repositorio contiene la pantalla de **transmisión en vivo** utilizada para
 | Componente | Tecnología |
 |---|---|
 | Backend | [Flask](https://flask.palletsprojects.com/) |
-| Tiempo real | [Flask-SocketIO](https://flask-socketio.readthedocs.io/) / [Socket.IO](https://socket.io/) |
-| Servidor asíncrono | [Eventlet](https://eventlet.readthedocs.io/) |
+| Tiempo real (servidor → pantallas) | [Flask-SocketIO](https://flask-socketio.readthedocs.io/) / [Socket.IO](https://socket.io/) |
+| Entrada de datos (Arduino → PC) | [PySerial](https://pyserial.readthedocs.io/) por cable USB |
 | Frontend | HTML5 + CSS3 (video de fondo, animaciones con degradé institucional) |
 | Assets grandes | [Git LFS](https://git-lfs.github.com/) (video de fondo) |
 
@@ -100,7 +100,17 @@ pip install -r requirements.txt
 python app.py
 ```
 
-La aplicación queda disponible en `http://localhost:5000`. Para actualizar el contador desde otro proceso (lector, panel de administración, etc.), invocar `set_count(n)` o `increment(delta)` desde `app.py`.
+La aplicación queda disponible en `http://localhost:5000`.
+
+El contador se actualiza automáticamente leyendo el puerto serie del Arduino (por defecto `COM3` a `9600` baud): el Arduino debe enviar por USB una línea de texto con el total actual cada vez que cambia (ej. `5\n`, `6\n`). Si el puerto o la velocidad son distintos, configurarlos con variables de entorno antes de arrancar:
+
+```bash
+set ARDUINO_PORT=COM4
+set ARDUINO_BAUDRATE=115200
+python app.py
+```
+
+También se puede actualizar el contador manualmente desde otro proceso (panel de administración, etc.) invocando `set_count(n)` o `increment(delta)` desde `app.py`.
 
 <br>
 
