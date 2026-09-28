@@ -23,11 +23,15 @@
   .bar{height:8px;border-radius:4px;margin:2px 0;min-width:2px;transition:width .4s}
   .e{background:#2e7d32} .s{background:#c62828}
   .nota{color:#666;font-size:.85rem;margin-top:1rem}
+  .descargar{display:inline-flex;align-items:center;gap:.4rem;background:#1d1d1f;color:#fff;text-decoration:none;
+    padding:.5rem 1rem;border-radius:6px;font-size:.9rem;font-weight:600;margin-top:.8rem}
+  .descargar:hover{background:#333}
 </style>
 </head>
 <body>
 <h1>Entradas y salidas por hora <span id="vivo" class="vivo">EN VIVO</span></h1>
 <p class="sub" id="sub"></p>
+<a class="descargar" href="/reporte.csv" download>⬇ Descargar CSV</a>
 
 <div class="kpis">
   <div class="kpi">Entradas totales<b id="k-ent">0</b></div>

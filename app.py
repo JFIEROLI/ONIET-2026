@@ -1,3 +1,5 @@
+import csv
+import io
 import json
 import os
 import threading
@@ -5,7 +7,7 @@ import time
 import webbrowser
 
 import serial
-from flask import Flask, render_template, send_from_directory
+from flask import Flask, Response, render_template, send_from_directory
 from flask_socketio import SocketIO
 
 from registro import ENTRADA, SALIDA, Registro
@@ -38,6 +40,22 @@ def serve_img(filename):
 def reporte():
     """Reporte en vivo de la sesion actual (entradas/salidas por hora)."""
     return render_template("reporte.html", estado_json=estado_json(registro.estado()))
+
+
+@app.route("/reporte.csv")
+def reporte_csv():
+    """Descarga el reporte actual (incluye el tramo en curso) como CSV."""
+    est = registro.estado()
+    buf = io.StringIO()
+    w = csv.writer(buf)
+    w.writerow(["punto", "desde", "hasta", "entradas", "salidas",
+                "entradas_acumuladas", "salidas_acumuladas", "neto"])
+    for f in est["filas"]:
+        w.writerow([f["punto"], f["desde"], f["hasta"], f["entradas"], f["salidas"],
+                    f["entradas_acum"], f["salidas_acum"], f["neto"]])
+    nombre = f"reporte_{os.path.basename(registro.dir)}.csv"
+    return Response(buf.getvalue(), mimetype="text/csv",
+                     headers={"Content-Disposition": f"attachment; filename={nombre}"})
 
 
 def estado_json(estado):
