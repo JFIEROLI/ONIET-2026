@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ONIET 2026 · Reporte de entradas y salidas</title>
+<style>
+  body{font-family:system-ui,'Segoe UI',sans-serif;margin:2rem auto;max-width:980px;padding:0 1rem;color:#1d1d1f;background:#fafafa}
+  h1{margin:0 0 .2rem} .sub{color:#666;margin:0}
+  .vivo{display:inline-block;background:#c62828;color:#fff;border-radius:4px;padding:.1rem .5rem;font-size:.75rem;font-weight:700;margin-left:.5rem;vertical-align:middle;animation:pulso 1.5s infinite}
+  .vivo.off{background:#888;animation:none}
+  @keyframes pulso{50%{opacity:.5}}
+  .kpis{display:flex;gap:1rem;flex-wrap:wrap;margin:1.5rem 0}
+  .kpi{flex:1;min-width:150px;background:#fff;border:1px solid #ddd;border-radius:8px;padding:1rem}
+  .kpi b{display:block;font-size:2rem;font-variant-numeric:tabular-nums}
+  .tabla{overflow-x:auto}
+  table{border-collapse:collapse;width:100%;background:#fff}
+  th,td{padding:.5rem .6rem;border-bottom:1px solid #eee;text-align:left;white-space:nowrap}
+  th{background:#f0f0f2} .n{text-align:right;font-variant-numeric:tabular-nums}
+  tr.curso{background:#fff8e1;font-weight:600}
+  tr.flash{animation:flash .8s}
+  @keyframes flash{from{background:#ffe082}}
+  .bar{height:8px;border-radius:4px;margin:2px 0;min-width:2px;transition:width .4s}
+  .e{background:#2e7d32} .s{background:#c62828}
+  .nota{color:#666;font-size:.85rem;margin-top:1rem}
+</style>
+</head>
+<body>
+<h1>Entradas y salidas por hora <span id="vivo" class="vivo">EN VIVO</span></h1>
+<p class="sub" id="sub"></p>
+
+<div class="kpis">
+  <div class="kpi">Entradas totales<b id="k-ent">0</b></div>
+  <div class="kpi">Salidas totales<b id="k-sal">0</b></div>
+  <div class="kpi">Neto (entradas − salidas)<b id="k-neto">0</b></div>
+  <div class="kpi">Hora pico<b id="k-pico" style="font-size:1rem">—</b></div>
+</div>
+
+<div class="tabla">
+<table>
+  <thead><tr><th>#</th><th>Tramo</th><th class="n">Entradas</th><th class="n">Salidas</th><th style="width:25%"></th>
+    <th class="n">Entr. acum.</th><th class="n">Sal. acum.</th><th class="n">Neto</th></tr></thead>
+  <tbody id="filas"></tbody>
+</table>
+</div>
+<p class="nota">Conteo basado en los eventos de los sensores (no en el contador del Arduino, que incluye correcciones manuales).
+  Cada hora desde el punto 0 se cierra un tramo y empieza uno nuevo.</p>
+
+<script>
+  let estado = {{ estado_json | safe }};
+  let anterior = null;
+
+  const hhmm = s => s.slice(11, 16);
+  const faltan = hasta => {
+    const ms = new Date(hasta.replace(' ', 'T')) - new Date();
+    if (ms <= 0) return 'cerrando…';
+    const m = Math.floor(ms / 60000), s = Math.floor(ms / 1000) % 60;
+    return `cierra en ${m}:${String(s).padStart(2, '0')}`;
+  };
+
+  function render() {
+    const f = estado.filas;
+    const max = Math.max(1, ...f.map(r => Math.max(r.entradas, r.salidas)));
+    document.getElementById('k-ent').textContent = estado.entradas;
+    document.getElementById('k-sal').textContent = estado.salidas;
+    document.getElementById('k-neto').textContent = estado.neto;
+    const pico = f.reduce((a, r) => (!a || r.entradas > a.entradas ? r : a), null);
+    document.getElementById('k-pico').textContent = pico && pico.entradas
+      ? `${pico.entradas} entradas (${hhmm(pico.desde)} → ${hhmm(pico.hasta)})` : '—';
+    document.getElementById('vivo').className = 'vivo' + (estado.en_vivo ? '' : ' off');
+    document.getElementById('vivo').textContent = estado.en_vivo ? 'EN VIVO' : 'FINALIZADO';
+    document.getElementById('sub').textContent =
+      `Punto 0: ${estado.inicio} · actualizado ${estado.actualizado}`;
+
+    const prev = anterior ? Object.fromEntries(anterior.filas.map(r => [r.punto, r])) : {};
+    document.getElementById('filas').innerHTML =
+      `<tr><td>0</td><td>${hhmm(estado.inicio)}</td><td colspan="6">Punto 0 — inicio del registro</td></tr>` +
+      f.map(r => {
+        const p = prev[r.punto];
+        const cambio = anterior && (!p || p.entradas !== r.entradas || p.salidas !== r.salidas);
+        const tramo = r.en_curso
+          ? `${hhmm(r.desde)} → ahora <small class="cd" data-hasta="${r.hasta}">(${faltan(r.hasta)})</small>`
+          : `${hhmm(r.desde)} → ${hhmm(r.hasta)}`;
+        return `<tr class="${r.en_curso ? 'curso' : ''} ${cambio ? 'flash' : ''}">
+          <td>${r.punto}</td><td>${tramo}</td>
+          <td class="n">${r.entradas}</td><td class="n">${r.salidas}</td>
+          <td><div class="bar e" style="width:${r.entradas / max * 100}%"></div>
+              <div class="bar s" style="width:${r.salidas / max * 100}%"></div></td>
+          <td class="n">${r.entradas_acum}</td><td class="n">${r.salidas_acum}</td><td class="n">${r.neto}</td></tr>`;
+      }).join('');
+    anterior = estado;
+  }
+
+  render();
+  setInterval(() => document.querySelectorAll('.cd').forEach(el => {
+    el.textContent = `(${faltan(el.dataset.hasta)})`;
+  }), 1000);
+
+  // Tiempo real solo cuando se abre desde el servidor (no desde el archivo guardado)
+  if (location.protocol.startsWith('http')) {
+    const s = document.createElement('script');
+    s.src = 'https://cdn.socket.io/4.7.5/socket.io.min.js';
+    s.onload = () => io().on('registro_update', data => { estado = data; render(); });
+    document.head.appendChild(s);
+  }
+</script>
+</body>
+</html>
