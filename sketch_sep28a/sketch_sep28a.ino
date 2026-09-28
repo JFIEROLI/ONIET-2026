@@ -73,16 +73,20 @@ void loop() {
     }
   }
 
-//BOTONES DE CORRECCION MANUAL (con debounce simple)
+//BOTONES MANUALES: SUMAR = entrada, RESTAR = salida (con debounce simple)
   if (millis() - ultimoDebounceBoton > DEBOUNCE_BOTON) {
     if (digitalRead(BOTON_SUMAR) == LOW) {
       personasPresentes++;
       ultimoDebounceBoton = millis();
+      Serial.println("Entrada detectada");
+      beepEntrada();
       mostrarConteo();
     }
     if (digitalRead(BOTON_RESTAR) == LOW) {
       if (personasPresentes > 0) personasPresentes--;
       ultimoDebounceBoton = millis();
+      Serial.println("Salida detectada");
+      beepSalida();
       mostrarConteo();
     }
   }

@@ -97,7 +97,8 @@ def read_from_arduino():
 if __name__ == "__main__":
     registro = Registro(on_change=emitir_registro)
     registro.iniciar_cortes_horarios()
-    threading.Timer(2, webbrowser.open, ["http://localhost:5000/reporte"]).start()
+    threading.Timer(2, webbrowser.open, ["http://localhost:5000/"]).start()
+    threading.Timer(2, webbrowser.open_new_tab, ["http://localhost:5000/reporte"]).start()
     threading.Thread(target=read_from_arduino, daemon=True).start()
     try:
         socketio.run(app, host="0.0.0.0", port=5000, debug=True, use_reloader=False)
