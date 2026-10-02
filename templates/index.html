@@ -147,6 +147,138 @@
     0%{ background-position:0% 50%; }
     100%{ background-position:200% 50%; }
   }
+
+  .graph-toggle{
+    position:fixed;
+    top:2.2vh;
+    right:2.2vw;
+    z-index:10;
+    display:inline-flex;
+    align-items:center;
+    gap:0.6vh;
+    padding:1.1vh 2vw;
+    border:none;
+    border-radius:999px;
+    font-family:inherit;
+    font-weight:800;
+    font-size:1.5vh;
+    letter-spacing:0.08em;
+    text-transform:uppercase;
+    color:#111;
+    background:var(--rainbow);
+    background-size:200% 100%;
+    animation:shift 12s linear infinite;
+    cursor:pointer;
+    box-shadow:0 0.4vh 1.4vh rgba(0,0,0,0.5);
+    transition:transform .2s ease;
+  }
+  .graph-toggle:hover{ transform:scale(1.05); }
+  .graph-toggle:active{ transform:scale(0.97); }
+
+  .graph-overlay{
+    position:fixed;
+    inset:0;
+    z-index:20;
+    pointer-events:none;
+  }
+  .graph-overlay.open{
+    pointer-events:auto;
+  }
+
+  .graph-panel{
+    position:fixed;
+    top:0;
+    right:0;
+    height:100vh;
+    width:min(34vw, 480px);
+    overflow-y:auto;
+    background:#121212;
+    padding:3vh 2vw 2.5vh;
+    box-shadow:-1vh 0 4vh rgba(0,0,0,0.6);
+    transform:translateX(100%);
+    opacity:0;
+    transition:transform .5s cubic-bezier(.2,.8,.2,1), opacity .4s ease;
+  }
+  .graph-overlay.open .graph-panel{
+    transform:translateX(0);
+    opacity:1;
+  }
+
+  .graph-panel::before{
+    content:"";
+    position:absolute;
+    top:0;
+    bottom:0;
+    left:0;
+    width:0.5vh;
+    background:var(--rainbow);
+    background-size:200% 100%;
+    animation:shift 12s linear infinite;
+    pointer-events:none;
+  }
+
+  .graph-close{
+    position:absolute;
+    top:1.2vh;
+    right:1.4vw;
+    width:3.6vh;
+    height:3.6vh;
+    border:none;
+    border-radius:50%;
+    background:rgba(255,255,255,0.1);
+    color:#fff;
+    font-size:2vh;
+    line-height:1;
+    cursor:pointer;
+  }
+  .graph-close:hover{ background:rgba(255,255,255,0.22); }
+
+  .graph-title{
+    color:#fff;
+    font-size:2.2vh;
+    font-weight:800;
+    letter-spacing:0.05em;
+    text-transform:uppercase;
+    margin-bottom:1.6vh;
+    text-align:center;
+  }
+
+  .graph-kpis{
+    display:flex;
+    gap:1.2vw;
+    justify-content:center;
+    margin-bottom:2vh;
+    flex-wrap:wrap;
+  }
+  .graph-kpi{
+    color:#fff;
+    background:rgba(255,255,255,0.06);
+    border-radius:1vh;
+    padding:0.8vh 1.6vw;
+    text-align:center;
+    font-size:1.3vh;
+    text-transform:uppercase;
+    letter-spacing:0.05em;
+  }
+  .graph-kpi b{
+    display:block;
+    font-size:2.4vh;
+    font-variant-numeric:tabular-nums;
+    font-weight:900;
+  }
+
+  .graph-canvas-wrap{
+    position:relative;
+    width:100%;
+    height:40vh;
+  }
+
+  .graph-empty{
+    color:rgba(255,255,255,0.6);
+    text-align:center;
+    font-size:1.6vh;
+    padding:4vh 0;
+  }
 </style>
 </head>
 <body>
@@ -158,6 +290,24 @@
 
   <div class="frame-stripe top"></div>
   <div class="frame-stripe bottom"></div>
+
+  <button class="graph-toggle" id="graphToggle" type="button">Ver gráfico</button>
+
+  <div class="graph-overlay" id="graphOverlay">
+    <div class="graph-panel">
+      <button class="graph-close" id="graphClose" type="button" aria-label="Cerrar">✕</button>
+      <h2 class="graph-title">Entradas y salidas por tramo</h2>
+      <div class="graph-kpis">
+        <div class="graph-kpi">Entradas<b id="gk-ent">0</b></div>
+        <div class="graph-kpi">Salidas<b id="gk-sal">0</b></div>
+        <div class="graph-kpi">Neto<b id="gk-neto">0</b></div>
+      </div>
+      <div class="graph-canvas-wrap">
+        <canvas id="graphCanvas"></canvas>
+        <p class="graph-empty" id="graphEmpty">Esperando datos del registro…</p>
+      </div>
+    </div>
+  </div>
 
   <main class="screen">
     <img class="logo" src="/static/img/logo-oniet30.png" alt="ONIET 30 años · Olimpiadas Nacionales">
@@ -177,6 +327,101 @@
       counterEl.textContent = data.count;
     });
     // --- fin lógica de Socket.IO ---
+  </script>
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+  <script>
+    (function(){
+      const toggleBtn = document.getElementById('graphToggle');
+      const closeBtn = document.getElementById('graphClose');
+      const overlay = document.getElementById('graphOverlay');
+      const emptyMsg = document.getElementById('graphEmpty');
+      const canvas = document.getElementById('graphCanvas');
+      const kEnt = document.getElementById('gk-ent');
+      const kSal = document.getElementById('gk-sal');
+      const kNeto = document.getElementById('gk-neto');
+
+      let estado = null;
+      let chart = null;
+
+      const hhmm = s => (s || '').slice(11, 16);
+
+      function datosDeEstado(est){
+        const labels = est.filas.map(f => `${hhmm(f.desde)}–${hhmm(f.hasta)}`);
+        return {
+          labels,
+          entradas: est.filas.map(f => f.entradas),
+          salidas: est.filas.map(f => f.salidas)
+        };
+      }
+
+      function construirChart(){
+        if (!estado || !estado.filas || !estado.filas.length) return;
+        const { labels, entradas, salidas } = datosDeEstado(estado);
+        emptyMsg.style.display = 'none';
+        canvas.style.display = 'block';
+
+        if (chart) {
+          chart.data.labels = labels;
+          chart.data.datasets[0].data = entradas;
+          chart.data.datasets[1].data = salidas;
+          chart.update();
+          return;
+        }
+
+        chart = new Chart(canvas.getContext('2d'), {
+          type: 'bar',
+          data: {
+            labels,
+            datasets: [
+              { label: 'Entradas', data: entradas, backgroundColor: '#8DC63F', borderRadius: 4 },
+              { label: 'Salidas', data: salidas, backgroundColor: '#DE5B2A', borderRadius: 4 }
+            ]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            animation: { duration: 600, easing: 'easeOutQuart' },
+            plugins: {
+              legend: { labels: { color: '#fff', font: { weight: '600' } } }
+            },
+            scales: {
+              x: { ticks: { color: '#ccc' }, grid: { color: 'rgba(255,255,255,0.08)' } },
+              y: { beginAtZero: true, ticks: { color: '#ccc' }, grid: { color: 'rgba(255,255,255,0.08)' } }
+            }
+          }
+        });
+      }
+
+      function actualizarKpis(){
+        if (!estado) return;
+        kEnt.textContent = estado.entradas;
+        kSal.textContent = estado.salidas;
+        kNeto.textContent = estado.neto;
+      }
+
+      function abrir(){
+        overlay.classList.add('open');
+        actualizarKpis();
+        construirChart();
+      }
+
+      function cerrar(){
+        overlay.classList.remove('open');
+      }
+
+      toggleBtn.addEventListener('click', abrir);
+      closeBtn.addEventListener('click', cerrar);
+      overlay.addEventListener('click', (e) => { if (e.target === overlay) cerrar(); });
+
+      socket.on('registro_update', (data) => {
+        estado = data;
+        if (overlay.classList.contains('open')) {
+          actualizarKpis();
+          construirChart();
+        }
+      });
+    })();
   </script>
 
 </body>

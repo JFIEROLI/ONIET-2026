@@ -69,6 +69,8 @@ def emitir_registro(estado):
 @socketio.on("connect")
 def handle_connect():
     socketio.emit("count_update", {"count": attendee_count})
+    if registro is not None:
+        socketio.emit("registro_update", registro.estado())
 
 
 def set_count(new_count: int):
