@@ -273,6 +273,10 @@
     height:40vh;
   }
 
+  .graph-title-2{
+    margin-top:2.5vh;
+  }
+
   .graph-empty{
     color:rgba(255,255,255,0.6);
     text-align:center;
@@ -300,11 +304,17 @@
       <div class="graph-kpis">
         <div class="graph-kpi">Entradas<b id="gk-ent">0</b></div>
         <div class="graph-kpi">Salidas<b id="gk-sal">0</b></div>
-        <div class="graph-kpi">Neto<b id="gk-neto">0</b></div>
+        <div class="graph-kpi">Personas dentro<b id="gk-neto">0</b></div>
       </div>
       <div class="graph-canvas-wrap">
         <canvas id="graphCanvas"></canvas>
         <p class="graph-empty" id="graphEmpty">Esperando datos del registro…</p>
+      </div>
+
+      <h2 class="graph-title graph-title-2">Personas dentro por tramo</h2>
+      <div class="graph-canvas-wrap">
+        <canvas id="graphCanvas2"></canvas>
+        <p class="graph-empty" id="graphEmpty2">Esperando datos del registro…</p>
       </div>
     </div>
   </div>
@@ -337,12 +347,15 @@
       const overlay = document.getElementById('graphOverlay');
       const emptyMsg = document.getElementById('graphEmpty');
       const canvas = document.getElementById('graphCanvas');
+      const emptyMsg2 = document.getElementById('graphEmpty2');
+      const canvas2 = document.getElementById('graphCanvas2');
       const kEnt = document.getElementById('gk-ent');
       const kSal = document.getElementById('gk-sal');
       const kNeto = document.getElementById('gk-neto');
 
       let estado = null;
       let chart = null;
+      let chart2 = null;
 
       const hhmm = s => (s || '').slice(11, 16);
 
@@ -351,7 +364,8 @@
         return {
           labels,
           entradas: est.filas.map(f => f.entradas),
-          salidas: est.filas.map(f => f.salidas)
+          salidas: est.filas.map(f => f.salidas),
+          dentro: est.filas.map(f => Math.max(0, f.entradas_acum - f.salidas_acum))
         };
       }
 
@@ -393,6 +407,46 @@
         });
       }
 
+      function construirChart2(){
+        if (!estado || !estado.filas || !estado.filas.length) return;
+        const { labels, dentro } = datosDeEstado(estado);
+        emptyMsg2.style.display = 'none';
+        canvas2.style.display = 'block';
+
+        if (chart2) {
+          chart2.data.labels = labels;
+          chart2.data.datasets[0].data = dentro;
+          chart2.update();
+          return;
+        }
+
+        chart2 = new Chart(canvas2.getContext('2d'), {
+          type: 'line',
+          data: {
+            labels,
+            datasets: [
+              {
+                label: 'Personas dentro', data: dentro, borderColor: '#2FA9E0',
+                backgroundColor: 'rgba(47,169,224,0.25)', fill: true, tension: 0.3,
+                pointRadius: 3, pointBackgroundColor: '#2FA9E0'
+              }
+            ]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            animation: { duration: 600, easing: 'easeOutQuart' },
+            plugins: {
+              legend: { labels: { color: '#fff', font: { weight: '600' } } }
+            },
+            scales: {
+              x: { ticks: { color: '#ccc' }, grid: { color: 'rgba(255,255,255,0.08)' } },
+              y: { beginAtZero: true, ticks: { color: '#ccc', precision: 0 }, grid: { color: 'rgba(255,255,255,0.08)' } }
+            }
+          }
+        });
+      }
+
       function actualizarKpis(){
         if (!estado) return;
         kEnt.textContent = estado.entradas;
@@ -404,6 +458,7 @@
         overlay.classList.add('open');
         actualizarKpis();
         construirChart();
+        construirChart2();
       }
 
       function cerrar(){
@@ -419,6 +474,7 @@
         if (overlay.classList.contains('open')) {
           actualizarKpis();
           construirChart();
+          construirChart2();
         }
       });
     })();

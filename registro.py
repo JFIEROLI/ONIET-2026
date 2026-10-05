@@ -30,7 +30,7 @@ INTERVALO = timedelta(minutes=float(os.environ.get("REGISTRO_INTERVALO_MIN", "60
 ENTRADA = "entrada"
 SALIDA = "salida"
 CORTES_HEADER = ["punto", "hora", "entradas_intervalo", "salidas_intervalo",
-                 "entradas_acumuladas", "salidas_acumuladas", "neto"]
+                 "entradas_acumuladas", "salidas_acumuladas", "personas_dentro"]
 
 
 class Registro:
@@ -86,7 +86,7 @@ class Registro:
             self.punto += 1
             fila = [self.punto, datetime.now().strftime(FMT),
                     self.ent_intervalo, self.sal_intervalo,
-                    self.ent_total, self.sal_total, self.ent_total - self.sal_total]
+                    self.ent_total, self.sal_total, max(0, self.ent_total - self.sal_total)]
             self.ent_intervalo = self.sal_intervalo = 0
             with open(self.cortes_path, "a", newline="", encoding="utf-8") as f:
                 csv.writer(f).writerow(fila)
@@ -136,11 +136,11 @@ def estado(sesion_dir, proximo_corte=None):
     for f in filas:
         ent += f["entradas"]
         sal += f["salidas"]
-        f.update(entradas_acum=ent, salidas_acum=sal, neto=ent - sal)
+        f.update(entradas_acum=ent, salidas_acum=sal, neto=max(0, ent - sal))
 
     return {"inicio": cortes[0]["hora"], "actualizado": datetime.now().strftime(FMT),
             "en_vivo": proximo_corte is not None, "filas": filas,
-            "entradas": ent, "salidas": sal, "neto": ent - sal}
+            "entradas": ent, "salidas": sal, "neto": max(0, ent - sal)}
 
 
 def escribir_reporte(sesion_dir, est) -> str:

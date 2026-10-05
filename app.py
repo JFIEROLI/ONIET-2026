@@ -18,7 +18,7 @@ socketio = SocketIO(app, cors_allowed_origins="*", async_mode="threading")
 
 IMG_DIR = os.path.join(os.path.dirname(__file__), "img")
 
-SERIAL_PORT = os.environ.get("ARDUINO_PORT", "COM3")
+SERIAL_PORT = os.environ.get("ARDUINO_PORT", "COM4")
 SERIAL_BAUDRATE = int(os.environ.get("ARDUINO_BAUDRATE", "9600"))
 
 attendee_count = 0
@@ -49,7 +49,7 @@ def reporte_csv():
     buf = io.StringIO()
     w = csv.writer(buf)
     w.writerow(["punto", "desde", "hasta", "entradas", "salidas",
-                "entradas_acumuladas", "salidas_acumuladas", "neto"])
+                "entradas_acumuladas", "salidas_acumuladas", "personas_dentro"])
     for f in est["filas"]:
         w.writerow([f["punto"], f["desde"], f["hasta"], f["entradas"], f["salidas"],
                     f["entradas_acum"], f["salidas_acum"], f["neto"]])
