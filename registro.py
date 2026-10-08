@@ -35,10 +35,17 @@ CORTES_HEADER = ["punto", "hora", "entradas_intervalo", "salidas_intervalo",
 
 class Registro:
     def __init__(self, on_change=None):
-        """on_change(estado) se llama en cada entrada, salida y corte."""
+        """on_change(estado) se llama en cada entrada, salida y corte.
+
+        Si en registros/ ya hay una sesion anterior (p.ej. copiada a mano
+        desde otra PC), esta sesion nueva continua sus totales acumulados
+        en vez de arrancar de cero: asi se puede clonar el proyecto en otra
+        maquina, copiar la carpeta de la sesion vieja dentro de registros/
+        y seguir el conteo sin perder lo ya registrado."""
         self.on_change = on_change
         self.inicio = datetime.now().replace(microsecond=0)
-        self.dir = os.path.join(BASE_DIR, "sesion_" + self.inicio.strftime("%Y%m%d_%H%M%S"))
+        nombre_sesion = "sesion_" + self.inicio.strftime("%Y%m%d_%H%M%S")
+        self.dir = os.path.join(BASE_DIR, nombre_sesion)
         os.makedirs(self.dir, exist_ok=True)
         self.eventos_path = os.path.join(self.dir, "eventos.csv")
         self.cortes_path = os.path.join(self.dir, "cortes.csv")
@@ -48,14 +55,24 @@ class Registro:
         self.punto = 0
         self.proximo_corte = self.inicio + INTERVALO
         self.ent_intervalo = self.sal_intervalo = 0
-        self.ent_total = self.sal_total = 0
+
+        anterior = _ultima_sesion_anterior(BASE_DIR, excluir=nombre_sesion)
+        if anterior:
+            previo = estado(anterior)
+            self.ent_total = previo["entradas"]
+            self.sal_total = previo["salidas"]
+            print(f"Sesion anterior encontrada ({os.path.basename(anterior)}): "
+                  f"continuo desde {self.ent_total} entradas / {self.sal_total} salidas")
+        else:
+            self.ent_total = self.sal_total = 0
 
         with open(self.eventos_path, "w", newline="", encoding="utf-8") as f:
             csv.writer(f).writerow(["hora", "tipo", "tramo"])
         with open(self.cortes_path, "w", newline="", encoding="utf-8") as f:
             w = csv.writer(f)
             w.writerow(CORTES_HEADER)
-            w.writerow([0, self.inicio.strftime(FMT), 0, 0, 0, 0, 0])
+            w.writerow([0, self.inicio.strftime(FMT), 0, 0,
+                        self.ent_total, self.sal_total, max(0, self.ent_total - self.sal_total)])
         self._actualizar()
         print(f"Registro iniciado (punto 0: {self.inicio.strftime(FMT)}) en {self.dir}")
 
@@ -105,6 +122,21 @@ class Registro:
         self._stop.set()
         self.corte()
         return os.path.join(self.dir, "reporte.html")
+
+
+def _ultima_sesion_anterior(base_dir, excluir=None):
+    """Busca la sesion mas reciente ya presente en registros/ (por ejemplo,
+    copiada a mano desde otra PC) para continuar sus totales. Ignora la
+    carpeta de la sesion que se esta creando ahora."""
+    if not os.path.isdir(base_dir):
+        return None
+    candidatas = sorted(
+        d for d in os.listdir(base_dir)
+        if d.startswith("sesion_") and d != excluir
+        and os.path.isfile(os.path.join(base_dir, d, "cortes.csv"))
+        and os.path.isfile(os.path.join(base_dir, d, "eventos.csv"))
+    )
+    return os.path.join(base_dir, candidatas[-1]) if candidatas else None
 
 
 def estado(sesion_dir, proximo_corte=None):

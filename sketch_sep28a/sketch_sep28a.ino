@@ -24,8 +24,8 @@ rapido (ver charla previa).
 
 #define BUZZER 8
 
-#define UMBRAL_CM 10
-#define COOLDOWN_MS 900
+#define UMBRAL_CM 120
+#define COOLDOWN_MS 1300
 
 int personasPresentes = 0;
 
@@ -79,14 +79,12 @@ void loop() {
       personasPresentes++;
       ultimoDebounceBoton = millis();
       Serial.println("Entrada detectada");
-      beepEntrada();
       mostrarConteo();
     }
     if (digitalRead(BOTON_RESTAR) == LOW) {
       if (personasPresentes > 0) personasPresentes--;
       ultimoDebounceBoton = millis();
       Serial.println("Salida detectada");
-      beepSalida();
       mostrarConteo();
     }
   }
